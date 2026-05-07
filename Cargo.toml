@@ -4,3 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+aion-event = { path = "../../aion-event" }
+aion-program = { path = "../../aion-program" }
+aion-processor = { path = "../../aion-processor" }
+
+aion-event-processor = { path = "../aion-event-processor", optional = true }
+
+[features]
+default = ["pipeline-resources"]
+pipeline-resources = ["aion-event-processor"]
