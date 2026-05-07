@@ -113,8 +113,8 @@ impl EventSystem for EventExecutable {
                     #[cfg(feature = "load-access-builders")]
                     let index = {
                         use aion_event_processor::prelude::get_mut_system_metadata;
-                        match get_mut_system_metadata(program_registry, &system) {
-                            Ok(Ok(Ok(mut system_metadata))) => {
+                        match get_mut_system_metadata(program_registry, system.clone()) {
+                            Ok(Ok(mut system_metadata)) => {
                                 let index = system_metadata.as_ref().stored_access_builders().len();
             
                                 system_metadata.as_mut().insert_access_builder(AccessBuilder {
