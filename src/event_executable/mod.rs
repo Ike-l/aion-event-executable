@@ -64,8 +64,7 @@ impl EventSystem for EventExecutable {
             use aion_program::prelude::{ResourceId, AccessBuilder};
             use crate::prelude::{get_resource_registry, get_executable_system_registry, get_system_pipeline_registry, SystemPipelineRegistry};
 
-            let resolved_pipelines: Option<Vec<(Event, PipelineId, ResourceId)>> = if let Some(new_events) = new_events {
-
+            let resolved_pipelines: Option<Vec<(&Event, &PipelineId, ResourceId)>> = if let Some(new_events) = new_events.as_ref() {
                 match get_resource_registry(program_registry) {
                     Ok(Ok(Ok(resource_registry))) => {
                         let mut resolved = Vec::new();
@@ -73,7 +72,7 @@ impl EventSystem for EventExecutable {
                         for (event, pipelines) in new_events {
                             for pipeline in pipelines {
                                 if let Some(Some(resource)) = resource_registry.as_ref().get(&pipeline) {
-                                    resolved.push((event.clone(), pipeline.clone(), resource.clone()));
+                                    resolved.push((event, pipeline, resource.clone()));
                                 }
                             }
                         }
@@ -84,7 +83,7 @@ impl EventSystem for EventExecutable {
                 }
             } else { None };
     
-            let resolved_systems: Option<Vec<(ResourceId, PipelineId, ResourceId)>> = if let Some(resolved_pipelines) = resolved_pipelines {
+            let resolved_systems: Option<Vec<(ResourceId, &PipelineId, ResourceId)>> = if let Some(resolved_pipelines) = resolved_pipelines {
                 match get_executable_system_registry(program_registry) {
                     Ok(Ok(Ok(executable_system_registry))) => {
                         let mut resolved = Vec::new();
@@ -94,7 +93,7 @@ impl EventSystem for EventExecutable {
                                 for system in systems {
                                     resolved.push((
                                         system.clone(),
-                                        pipeline.clone(),
+                                        pipeline,
                                         resource.clone(),
                                     ));
                                 }
@@ -119,7 +118,7 @@ impl EventSystem for EventExecutable {
                                 let index = system_metadata.as_ref().stored_access_builders().len();
             
                                 system_metadata.as_mut().insert_access_builder(AccessBuilder {
-                                    resource_id: Some(resource),
+                                    resource_id: Some(resource.clone()),
                                     ..Default::default()
                                 });
                                 
@@ -136,7 +135,7 @@ impl EventSystem for EventExecutable {
                         new_system_pipeline_registry
                             .entry(system)
                             .or_default()
-                            .insert(pipeline, index)
+                            .insert((*pipeline).clone(), index)
                             .is_none()
                     );
                 }
