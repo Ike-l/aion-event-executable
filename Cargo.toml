@@ -8,8 +8,9 @@ aion-event = { path = "../../aion-event" }
 aion-program = { path = "../../aion-program" }
 aion-processor = { path = "../../aion-processor" }
 
-aion-event-processor = { path = "../aion-event-processor", optional = true }
+# aion-event-processor = { path = "../aion-event-processor", optional = true }
+aion-event-processor = { path = "../aion-event-processor" }
 
 [features]
-default = ["pipeline-resources"]
-pipeline-resources = ["aion-event-processor"]
+# default = ["pipeline-resources"]
+# pipeline-resources = ["aion-event-processor"]
