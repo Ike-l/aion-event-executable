@@ -1,8 +1,7 @@
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
 use aion_event::prelude::{Event, EventBuffer, EventHistory, EventSystem};
-use aion_event_processor::prelude::get_system_metadata;
-use aion_program::prelude::{AccessBuilder, ProgramRegistry, UserId, UserPassword};
+use aion_program::prelude::{AccessBuilder, ProgramRegistry, ResourceId, UserId, UserPassword};
 
 use crate::prelude::{PipelineId, SystemPipelineRegistry, get_executable_event_registry, get_executable_system_registry, get_mut_executable_pipeline_buffer, get_resource_registry, get_system_pipeline_registry};
 
@@ -10,15 +9,14 @@ pub mod executable_pipeline_buffer;
 pub mod executable_event_registry;
 
 
-// #[cfg(feature = "pipeline-resources")]
-pub mod executable_system_registry;
-// #[cfg(feature = "pipeline-resources")]
+#[cfg(feature = "load-access-builders")]
 pub mod executable;
 
-// actually have a different feature flag
-// #[cfg(feature = "pipeline-resources")]
+#[cfg(feature = "pipeline-resources")]
+pub mod executable_system_registry;
+#[cfg(feature = "pipeline-resources")]
 pub mod system_pipeline_registry;
-// #[cfg(feature = "pipeline-resources")]
+#[cfg(feature = "pipeline-resources")]
 pub mod resource_registry;
 
 pub struct EventExecutable;
@@ -60,46 +58,90 @@ impl EventSystem for EventExecutable {
             _ => None
         };
 
-        // TODO separate this into 4 sections
-        // So that each "get" can fail and the other systems will still behave
-        // TODO
-        // feature flags for each section
-        // work out which feature flag depends on which other
-
-        
-        let mut new_system_pipeline_registry = SystemPipelineRegistry::new();
-        if let Some(new_events) = new_events {
-            for (event, pipelines) in new_events {
-                if let Ok(Ok(Ok(resource_registry))) = get_resource_registry(program_registry) {
-                    for pipeline in pipelines {
-                        if let Ok(Ok(Ok(executable_system_registry))) = get_executable_system_registry(program_registry) {
-                            if let Some(systems) = executable_system_registry.as_ref().get(&event) {
-                                for system in systems {
-                                    if let Ok(Ok(Ok(mut system_metadata))) = get_system_metadata(program_registry, system) {
-                                        if let Some(Some(source)) = resource_registry.as_ref().get(&pipeline) {
-                                            let index = system_metadata.as_ref().stored_access_builders().len();
-                                            system_metadata.as_mut().insert_access_builder(AccessBuilder {
-                                                resource_id: Some(source.clone()),
-                                                ..Default::default()
-                                            });
-
-                                            assert!(new_system_pipeline_registry
-                                                .entry(system.clone())
-                                                .or_default()
-                                                .insert(pipeline.clone(), Some(index)).is_none());
-                                        }
-                                    }
+        #[cfg(feature = "pipeline-resources")]
+        {
+            let resolved_pipelines: Option<Vec<(Event, PipelineId, ResourceId)>> = if let Some(new_events) = new_events {
+                match get_resource_registry(program_registry) {
+                    Ok(Ok(Ok(resource_registry))) => {
+                        let mut resolved = Vec::new();
+    
+                        for (event, pipelines) in new_events {
+                            for pipeline in pipelines {
+                                if let Some(Some(resource)) = resource_registry.as_ref().get(&pipeline) {
+                                    resolved.push((event.clone(), pipeline.clone(), resource.clone()));
                                 }
                             }
                         }
+    
+                        Some(resolved)
                     }
+                    _ => None,
                 }
+            } else { None };
+    
+            let resolved_systems: Option<Vec<(ResourceId, PipelineId, ResourceId)>> = if let Some(resolved_pipelines) = resolved_pipelines {
+                match get_executable_system_registry(program_registry) {
+                    Ok(Ok(Ok(executable_system_registry))) => {
+                        let mut resolved = Vec::new();
+        
+                        for (event, pipeline, resource) in resolved_pipelines {
+                            if let Some(systems) = executable_system_registry.as_ref().get(&event) {
+                                for system in systems {
+                                    resolved.push((
+                                        system.clone(),
+                                        pipeline.clone(),
+                                        resource.clone(),
+                                    ));
+                                }
+                            }
+                        }
+        
+                        Some(resolved)
+                    }
+                    _ => None,
+                }
+            } else { None };
+    
+            let mut new_system_pipeline_registry: HashMap<ResourceId, HashMap<PipelineId, Option<usize>>> = SystemPipelineRegistry::new();
+            if let Some(resolved_systems) = resolved_systems {
+                for (system, pipeline, resource) in resolved_systems {
+                    // feature flag here
+                    #[cfg(feature = "load-access-builders")]
+                    let index = {
+                        use aion_event_processor::prelude::get_mut_system_metadata;
+                        match get_mut_system_metadata(program_registry, &system) {
+                            Ok(Ok(Ok(mut system_metadata))) => {
+                                let index = system_metadata.as_ref().stored_access_builders().len();
+            
+                                system_metadata.as_mut().insert_access_builder(AccessBuilder {
+                                    resource_id: Some(resource),
+                                    ..Default::default()
+                                });
+                                
+                                Some(index)
+                            }
+                            _ => None
+                        }
+                    };
+    
+                    #[cfg(not(feature = "load-access-builders"))]
+                    let index = None;
+    
+                    assert!(
+                        new_system_pipeline_registry
+                            .entry(system)
+                            .or_default()
+                            .insert(pipeline, index)
+                            .is_none()
+                    );
+                }
+            }
+    
+            if let Ok(Ok(Ok(mut system_pipeline_registry))) = get_system_pipeline_registry(program_registry) {
+                *system_pipeline_registry.as_mut() = new_system_pipeline_registry;
             }
         }
 
-        if let Ok(Ok(Ok(mut system_pipeline_registry))) = get_system_pipeline_registry(program_registry) {
-            *system_pipeline_registry.as_mut() = new_system_pipeline_registry;
-        }
 
         event_buffer
     }

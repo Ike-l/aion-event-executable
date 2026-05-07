@@ -4,7 +4,6 @@ pub mod prelude {
     pub use super::{
         event_executable::{
             EXECUTABLE_USER_DETAILS,
-            EventExecutable,
             executable_pipeline_buffer::{
                 ExecutablePipelineBuffer,
                 EXECUTABLE_PIPELINE_BUFFER_ACCESS_BUILDER,
@@ -26,7 +25,7 @@ pub mod prelude {
         },
     };
 
-    // #[cfg(feature = "pipeline-resources")]
+    #[cfg(feature = "pipeline-resources")]
     pub use super::{
         event_executable::{
             resource_registry::{
@@ -46,6 +45,15 @@ pub mod prelude {
                 SYSTEM_PIPELINE_REGISTRY_RESOURCE_ID,
                 SystemPipelineRegistry,
                 get_system_pipeline_registry
+            }
+        }
+    };
+
+    #[cfg(feature = "load-access-builders")]
+    pub use super::{
+        event_executable::{
+            executable::{
+                Executable
             }
         }
     };
