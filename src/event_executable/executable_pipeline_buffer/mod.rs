@@ -68,6 +68,6 @@ pub fn get_mut_executable_pipeline_buffer<'a>(
             resource_id: Some(EXECUTABLE_PIPELINE_BUFFER_RESOURCE_ID), 
             ..Default::default()
         }
-    // is only ever None if resource_id is None
+    // is only ever None if resource_id or resource is None
     ).unwrap()
 }

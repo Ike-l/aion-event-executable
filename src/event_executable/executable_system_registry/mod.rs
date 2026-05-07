@@ -27,6 +27,6 @@ pub fn get_executable_system_registry<'a>(
             resource_id: Some(EXECUTABLE_SYSTEM_REGISTRY_RESOURCE_ID), 
             ..Default::default()
         }
-    // is only ever None if resource_id is None
+    // is only ever None if resource_id or resource is None
     ).unwrap()
 }

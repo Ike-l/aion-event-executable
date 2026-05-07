@@ -1,9 +1,9 @@
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
 use aion_event::prelude::{Event, EventBuffer, EventHistory, EventSystem};
-use aion_program::prelude::{AccessBuilder, ProgramRegistry, ResourceId, UserId, UserPassword};
+use aion_program::prelude::{ProgramRegistry, UserId, UserPassword};
 
-use crate::prelude::{PipelineId, SystemPipelineRegistry, get_executable_event_registry, get_executable_system_registry, get_mut_executable_pipeline_buffer, get_resource_registry, get_system_pipeline_registry};
+use crate::prelude::{PipelineId, get_executable_event_registry, get_mut_executable_pipeline_buffer};
 
 pub mod executable_pipeline_buffer;
 pub mod executable_event_registry;
@@ -38,6 +38,7 @@ impl EventSystem for EventExecutable {
             _ => None,
         };
 
+        #[allow(unused_variables)]
         let new_events = match get_executable_event_registry(program_registry) {
             Ok(Ok(Ok(executable_event_registry))) => {
                 if let Some(next_executables) = next_executables {
@@ -60,7 +61,11 @@ impl EventSystem for EventExecutable {
 
         #[cfg(feature = "pipeline-resources")]
         {
+            use aion_program::prelude::{ResourceId, AccessBuilder};
+            use crate::prelude::{get_resource_registry, get_executable_system_registry, get_system_pipeline_registry, SystemPipelineRegistry};
+
             let resolved_pipelines: Option<Vec<(Event, PipelineId, ResourceId)>> = if let Some(new_events) = new_events {
+
                 match get_resource_registry(program_registry) {
                     Ok(Ok(Ok(resource_registry))) => {
                         let mut resolved = Vec::new();
