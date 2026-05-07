@@ -62,29 +62,31 @@ impl EventSystem for EventExecutable {
 
         // TODO separate this into 4 sections
         // So that each "get" can fail and the other systems will still behave
+        // TODO
+        // feature flags for each section
+        // work out which feature flag depends on which other
 
-        if let Ok(Ok(Ok(mut system_pipeline_registry))) = get_system_pipeline_registry(program_registry) {
-            let mut new_system_pipeline_registry = SystemPipelineRegistry::new();
-            if let Some(new_events) = new_events {
-                for (event, pipelines) in new_events {
-                    if let Ok(Ok(Ok(resource_registry))) = get_resource_registry(program_registry) {
-                        for pipeline in pipelines {
-                            if let Ok(Ok(Ok(executable_system_registry))) = get_executable_system_registry(program_registry) {
-                                if let Some(systems) = executable_system_registry.as_ref().get(&event) {
-                                    for system in systems {
-                                        if let Ok(Ok(Ok(mut system_metadata))) = get_system_metadata(program_registry, system) {
-                                            if let Some(Some(source)) = resource_registry.as_ref().get(&pipeline) {
-                                                let index = system_metadata.as_ref().stored_access_builders().len();
-                                                system_metadata.as_mut().insert_access_builder(AccessBuilder {
-                                                    resource_id: Some(source.clone()),
-                                                    ..Default::default()
-                                                });
+        
+        let mut new_system_pipeline_registry = SystemPipelineRegistry::new();
+        if let Some(new_events) = new_events {
+            for (event, pipelines) in new_events {
+                if let Ok(Ok(Ok(resource_registry))) = get_resource_registry(program_registry) {
+                    for pipeline in pipelines {
+                        if let Ok(Ok(Ok(executable_system_registry))) = get_executable_system_registry(program_registry) {
+                            if let Some(systems) = executable_system_registry.as_ref().get(&event) {
+                                for system in systems {
+                                    if let Ok(Ok(Ok(mut system_metadata))) = get_system_metadata(program_registry, system) {
+                                        if let Some(Some(source)) = resource_registry.as_ref().get(&pipeline) {
+                                            let index = system_metadata.as_ref().stored_access_builders().len();
+                                            system_metadata.as_mut().insert_access_builder(AccessBuilder {
+                                                resource_id: Some(source.clone()),
+                                                ..Default::default()
+                                            });
 
-                                                assert!(new_system_pipeline_registry
-                                                    .entry(system.clone())
-                                                    .or_default()
-                                                    .insert(pipeline.clone(), Some(index)).is_none());
-                                            }
+                                            assert!(new_system_pipeline_registry
+                                                .entry(system.clone())
+                                                .or_default()
+                                                .insert(pipeline.clone(), Some(index)).is_none());
                                         }
                                     }
                                 }
@@ -93,7 +95,9 @@ impl EventSystem for EventExecutable {
                     }
                 }
             }
+        }
 
+        if let Ok(Ok(Ok(mut system_pipeline_registry))) = get_system_pipeline_registry(program_registry) {
             *system_pipeline_registry.as_mut() = new_system_pipeline_registry;
         }
 
