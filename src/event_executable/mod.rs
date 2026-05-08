@@ -25,6 +25,7 @@ pub const EXECUTABLE_USER_DETAILS: (UserId, UserPassword) = (UserId::TypeId(Type
 
 impl EventSystem for EventExecutable {
     fn execute(
+        &self,
         program_registry: &Arc<ProgramRegistry>, 
         _current_events: &EventBuffer,
         _event_history: &EventHistory,
