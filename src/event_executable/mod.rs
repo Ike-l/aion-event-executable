@@ -120,6 +120,7 @@ impl EventSystem for EventExecutable {
                 
                                     system_metadata.as_mut().insert_access_builder(AccessBuilder {
                                         resource_id: Some(resource.clone()),
+                                        program_id: Some(program_id.clone()),
                                         ..Default::default()
                                     });
                                     
