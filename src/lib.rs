@@ -52,8 +52,8 @@ pub mod prelude {
     #[cfg(feature = "load-access-builders")]
     pub use super::{
         event_executable::{
-            executable::{
-                Executable
+            executable_filter::{
+                ExecutableFilter
             }
         }
     };
