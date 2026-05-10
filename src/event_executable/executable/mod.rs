@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
-use aion_program::prelude::{Injection, AccessBuilder, FinalisedAccess, DerivedResult, ResolveResourceError, AccessSubmissionError};
+use aion_program::prelude::{AccessBuilder, AccessSubmissionError, DerivedResult, FinalisedAccess, Injection, ProgramRegistry, ResolveResourceError};
 
 use crate::prelude::EXECUTABLE_USER_DETAILS;
 
@@ -29,6 +29,8 @@ impl<'a, T: Injection> Injection for Executable<'a, T> {
 
     fn submit_access(prompted_accesses: Vec<AccessBuilder>) -> Result<Vec<FinalisedAccess>, AccessSubmissionError> {
         let mut finalised_accesses = Vec::new();
+
+        let mut buffer = Vec::new();
         for prompted_access in prompted_accesses {
             if prompted_access.user_details.as_ref().is_some_and(|user_details| *user_details == EXECUTABLE_USER_DETAILS) {
                 match T::submit_access(vec![prompted_access]) {
@@ -37,22 +39,33 @@ impl<'a, T: Injection> Injection for Executable<'a, T> {
                     },
                     _ => ()
                 }
+            } else {
+                buffer.push(prompted_access);
             }
         }
 
         Ok(finalised_accesses)
     }
 
-    fn resolve_access<'new>(derived_results: Vec<DerivedResult<'new>>) -> Result<Self::Item<'new>, ResolveResourceError> {
+    fn resolve_access<'new>(program_registry: Arc<ProgramRegistry>, derived_results: Vec<DerivedResult<'new>>) -> Result<Self::Item<'new>, ResolveResourceError> {
         let mut resources = HashMap::new();
+
+        let mut buffer = Vec::new();
         for (i, derived_result) in derived_results.into_iter().enumerate() {
-            if let Some(user_details) = derived_result.user_details() {
-                if user_details.as_ref().is_some_and(|user_details| *user_details == EXECUTABLE_USER_DETAILS) {
-                    let injection_resolved_access = T::resolve_access(vec![derived_result]);
-                    if let Ok(resolved_access) = injection_resolved_access {
-                        resources.insert(i, resolved_access);
-                    }
+            if derived_result
+                .user_details()
+                .is_some_and(|user_details| user_details
+                    .as_ref()
+                    .is_some_and(|user_details| *user_details == EXECUTABLE_USER_DETAILS)) 
+            {
+                buffer.push(derived_result);
+                let injection_resolved_access = T::resolve_access(Arc::clone(&program_registry), buffer.drain(..).collect());
+
+                if let Ok(resolved_access) = injection_resolved_access {
+                    resources.insert(i, resolved_access);
                 }
+            } else {
+                buffer.push(derived_result);
             }
         }
 
