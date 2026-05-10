@@ -23,8 +23,8 @@ impl<'a, T: Injection> Executable<'a, T> {
 impl<'a, T: Injection> Injection for Executable<'a, T> {
     type Item<'new> = Executable<'new, T>;
 
-    fn claim_indexes(access_builders: Vec<&AccessBuilder>) -> Vec<usize> {
-        T::claim_indexes(access_builders)
+    fn claim_manual_access_builders(access_builders: Vec<&AccessBuilder>) -> Vec<usize> {
+        T::claim_manual_access_builders(access_builders)
     }
 
     fn submit_access(prompted_accesses: Vec<AccessBuilder>) -> Result<Vec<FinalisedAccess>, AccessSubmissionError> {
