@@ -22,6 +22,7 @@ dependencies = [
 name = "aion-event-executable"
 version = "0.1.0"
 dependencies = [
+ "aion-ecs",
  "aion-event",
  "aion-event-processor",
  "aion-processor",
