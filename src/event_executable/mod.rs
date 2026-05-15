@@ -1,9 +1,11 @@
-use std::{any::TypeId, collections::HashMap, sync::Arc};
+use std::{any::TypeId, collections::{HashMap, HashSet}, sync::Arc};
 
+use aion_ecs::prelude::Query;
 use aion_event::prelude::{Event, EventBuffer, EventHistory, EventSystem};
 use aion_program::prelude::{ProgramRegistry, UserId, UserPassword};
+use hecs::Entity;
 
-use crate::prelude::{PipelineId, get_executable_event_registry, get_mut_executable_pipeline_buffer};
+use crate::prelude::{ExecutablePipeline, ExecutablePipelineBuffer, PipelineId, get_executable_event_registry, get_mut_executable_pipeline_buffer};
 
 pub mod executable_pipeline_buffer;
 pub mod executable_event_registry;
@@ -32,33 +34,53 @@ impl EventSystem for EventExecutable {
     ) -> EventBuffer {
         let mut event_buffer = EventBuffer::default();
 
-        let next_executables = match get_mut_executable_pipeline_buffer(program_registry) {
-            Ok(Ok(Ok(mut executable_pipeline_buffer))) => {
-                Some(executable_pipeline_buffer.as_mut().next())
-            },
-            _ => None,
-        };
-
-        #[allow(unused_variables)]
-        let new_events = match get_executable_event_registry(program_registry) {
-            Ok(Ok(Ok(executable_event_registry))) => {
-                if let Some(next_executables) = next_executables {
-                    let mut events: HashMap<Event, Vec<PipelineId>> = HashMap::new();
-                    for (id, executable_reference) in next_executables {
-                        let event = executable_event_registry.as_ref().get(&executable_reference);
-                        if let Some(event) = event {
-                            event_buffer.insert(event.clone());
-                            events.entry(event.clone()).or_default().push(id);
+        let mut next_executables = Vec::new();
+        let mut exhausted_executable_pipelines = HashSet::new();
+        {
+            let executable_pipelines = program_registry.resolve::<Query<(Entity, &mut ExecutablePipeline)>>(vec![]);
+            if let Ok(Ok(mut executable_pipelines)) = executable_pipelines {
+                for (entity, executable_pipeline) in executable_pipelines.borrow().iter() {
+                    if let Some(next_executable) = executable_pipeline.pop_front() {
+                        if let Some(next_executable) = next_executable {
+                            next_executables.push(next_executable);
                         }
+                    } else {
+                        exhausted_executable_pipelines.insert(entity);
                     }
-
-                    Some(events)
-                } else {
-                    None
                 }
-            },
-            _ => None
-        };
+            }
+        }
+
+        struct ExecutableEvent {
+            id: String,
+            event: Event
+        }
+
+        {
+            let executable_events = program_registry.resolve::<Query<&ExecutableEvent>>(vec![]);
+            if let Ok(Ok(executable_events)) = executable_events {
+                for executable_event in executable_events.borrow().iter() {
+                    if next_executables.contains(&&executable_event.id) {
+                        event_buffer.insert(executable_event.event.clone());
+                    }
+                }
+            }
+        }
+
+        {
+            // for each program
+            // find pipeline_id -> resource_id/entity
+
+            // find event -> system_resource_id/entity
+            
+
+            // put resource_id/entity into the system's entity
+            // as many PipelineId -> Entity
+
+            // then maybe get the system's entity in Injection
+            // can then fetch the resource_id for it
+
+        }
 
         #[cfg(feature = "pipeline-resources")]
         {
