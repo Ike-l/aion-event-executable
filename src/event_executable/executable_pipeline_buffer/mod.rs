@@ -1,7 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use aion_processor::prelude::Unique;
-use aion_program::prelude::{AccessBuilder, AccessSubmissionError, ProgramRegistry, ProgramRegistryReplaceResourceError, ProgramRegistryResolveWithInsert, ResolveResourceError, Resource, ResourceId};
+use aion_program::prelude::{Unique, AccessBuilder, AccessSubmissionError, ProgramRegistry, ProgramRegistryReplaceResourceError, ProgramRegistryResolveWithInsert, ResolveResourceError, Resource, ResourceId};
 
 use crate::prelude::{ExecutablePipeline, PipelineId};
 
