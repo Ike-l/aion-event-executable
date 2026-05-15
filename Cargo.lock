@@ -27,6 +27,7 @@ dependencies = [
  "aion-event-processor",
  "aion-processor",
  "aion-program",
+ "hecs",
 ]
 
 [[package]]
