@@ -22,23 +22,12 @@ dependencies = [
 name = "aion-event-executable"
 version = "0.1.0"
 dependencies = [
- "aion-event",
- "aion-event-processor",
- "aion-processor",
- "aion-program",
-]
-
-[[package]]
-name = "aion-event-processor"
-version = "0.1.0"
-dependencies = [
+ "aion-ecs",
  "aion-event",
  "aion-processor",
  "aion-program",
- "aion-system",
- "execution-graph",
- "threadpool",
- "tokio",
+ "hecs",
+ "small_derive_deref",
 ]
 
 [[package]]

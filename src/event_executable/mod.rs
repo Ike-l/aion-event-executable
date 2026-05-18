@@ -1,27 +1,39 @@
-use std::{any::TypeId, collections::HashMap, sync::Arc};
+use std::{collections::{HashMap, HashSet}, sync::Arc};
 
+use aion_ecs::prelude::{Query, World};
 use aion_event::prelude::{Event, EventBuffer, EventHistory, EventSystem};
-use aion_program::prelude::{ProgramRegistry, UserId, UserPassword};
+use aion_processor::prelude::SystemId;
+use aion_program::prelude::{ProgramRegistry, Unique};
+use hecs::Entity;
 
-use crate::prelude::{PipelineId, get_executable_event_registry, get_mut_executable_pipeline_buffer};
+use crate::prelude::{ExecutablePipeline, PipelineId};
 
-pub mod executable_pipeline_buffer;
-pub mod executable_event_registry;
+pub mod executable_pipeline;
+pub mod pipeline_id;
 
+#[cfg(feature = "pipeline-events")]
+use crate::prelude::ExecutableEvent;
+#[cfg(feature = "pipeline-events")]
+pub mod executable_event;
 
-#[cfg(feature = "load-access-builders")]
-pub mod executable_filter;
+#[cfg(any(feature = "load-pipeline-resources", feature = "event-reactors"))]
+use aion_program::prelude::{AccessBuilder, Shared};
 
-#[cfg(feature = "pipeline-resources")]
-pub mod executable_system_registry;
-#[cfg(feature = "pipeline-resources")]
-pub mod system_pipeline_registry;
-#[cfg(feature = "pipeline-resources")]
-pub mod resource_registry;
+#[cfg(feature = "event-reactors")]
+use crate::prelude::EventReactor;
+#[cfg(feature = "event-reactors")]
+pub mod event_reactor;
+
+#[cfg(feature = "load-pipeline-resources")]
+use crate::prelude::{PipelineResources, PipelineResource};
+#[cfg(feature = "load-pipeline-resources")]
+pub mod pipeline_resources;
+#[cfg(feature = "load-pipeline-resources")]
+pub mod pipeline_resource;
+#[cfg(feature = "load-pipeline-resources")]
+pub mod get_pipeline_resources;
 
 pub struct EventExecutable;
-
-pub const EXECUTABLE_USER_DETAILS: (UserId, UserPassword) = (UserId::TypeId(TypeId::of::<EventExecutable>()), UserPassword::TypeId(TypeId::of::<EventExecutable>()));
 
 impl EventSystem for EventExecutable {
     fn execute(
@@ -30,126 +42,145 @@ impl EventSystem for EventExecutable {
         _current_events: &EventBuffer,
         _event_history: &EventHistory,
     ) -> EventBuffer {
+        #[allow(unused)]
         let mut event_buffer = EventBuffer::default();
 
-        let next_executables = match get_mut_executable_pipeline_buffer(program_registry) {
-            Ok(Ok(Ok(mut executable_pipeline_buffer))) => {
-                Some(executable_pipeline_buffer.as_mut().next())
-            },
-            _ => None,
-        };
-
-        #[allow(unused_variables)]
-        let new_events = match get_executable_event_registry(program_registry) {
-            Ok(Ok(Ok(executable_event_registry))) => {
-                if let Some(next_executables) = next_executables {
-                    let mut events: HashMap<Event, Vec<PipelineId>> = HashMap::new();
-                    for (id, executable_reference) in next_executables {
-                        let event = executable_event_registry.as_ref().get(&executable_reference);
-                        if let Some(event) = event {
-                            event_buffer.insert(event.clone());
-                            events.entry(event.clone()).or_default().push(id);
-                        }
-                    }
-
-                    Some(events)
-                } else {
-                    None
-                }
-            },
-            _ => None
-        };
-
-        #[cfg(feature = "pipeline-resources")]
+        let mut next_executables = HashMap::new();
+        let mut exhausted_executable_pipelines = HashSet::new();
         {
-            use aion_program::prelude::{ResourceId, AccessBuilder};
-            use crate::prelude::{get_resource_registry, get_executable_system_registry, get_system_pipeline_registry, SystemPipelineRegistry};
-
-            for program_id in program_registry.program_ids() {
-                let resolved_pipelines: Option<Vec<(&Event, &PipelineId, ResourceId)>> = if let Some(new_events) = new_events.as_ref() {
-                    match get_resource_registry(program_registry, Some(program_id.clone())) {
-                        Ok(Ok(Ok(resource_registry))) => {
-                            let mut resolved = Vec::new();
-        
-                            for (event, pipelines) in new_events {
-                                for pipeline in pipelines {
-                                    if let Some(Some(resource)) = resource_registry.as_ref().get(&pipeline) {
-                                        resolved.push((event, pipeline, resource.clone()));
-                                    }
-                                }
-                            }
-        
-                            Some(resolved)
+            let executable_pipelines = program_registry.resolve::<Query<(Entity, &mut ExecutablePipeline, Option<&PipelineId>)>>(None, vec![]);
+            if let Ok(Ok(executable_pipelines)) = executable_pipelines {
+                for (entity, executable_pipeline, pipeline_id) in executable_pipelines.query().iter() {
+                    if let Some(next_executable) = executable_pipeline.pop_front().cloned() {
+                        if let Some(next_executable) = next_executable {
+                            next_executables.insert(pipeline_id.cloned(), next_executable);
                         }
-                        _ => None,
+                    } else {
+                        exhausted_executable_pipelines.insert(entity);
                     }
-                } else { None };
-        
-                let resolved_systems: Option<Vec<(ResourceId, &PipelineId, ResourceId)>> = if let Some(resolved_pipelines) = resolved_pipelines {
-                    match get_executable_system_registry(program_registry, Some(program_id.clone())) {
-                        Ok(Ok(Ok(executable_system_registry))) => {
-                            let mut resolved = Vec::new();
-            
-                            for (event, pipeline, resource) in resolved_pipelines {
-                                if let Some(systems) = executable_system_registry.as_ref().get(&event) {
-                                    for system in systems {
-                                        resolved.push((
-                                            system.clone(),
-                                            pipeline,
-                                            resource.clone(),
-                                        ));
-                                    }
-                                }
-                            }
-            
-                            Some(resolved)
-                        }
-                        _ => None,
-                    }
-                } else { None };
-        
-                let mut new_system_pipeline_registry: HashMap<ResourceId, HashMap<PipelineId, Option<usize>>> = SystemPipelineRegistry::new();
-                if let Some(resolved_systems) = resolved_systems {
-                    for (system, pipeline, resource) in resolved_systems {
-                        // feature flag here
-                        #[cfg(feature = "load-access-builders")]
-                        let index = {
-                            use aion_event_processor::prelude::get_mut_system_metadata;
-                            match get_mut_system_metadata(program_registry, Some(program_id.clone()), system.clone()) {
-                                Ok(Ok(mut system_metadata)) => {
-                                    let index = system_metadata.as_ref().stored_access_builders().len();
-                
-                                    system_metadata.as_mut().insert_access_builder(AccessBuilder {
-                                        resource_id: Some(resource.clone()),
-                                        program_id: Some(program_id.clone()),
-                                        ..Default::default()
-                                    });
-                                    
-                                    Some(index)
-                                }
-                                _ => None
-                            }
-                        };
-        
-                        #[cfg(not(feature = "load-access-builders"))]
-                        let index = None;
-        
-                        assert!(
-                            new_system_pipeline_registry
-                                .entry(system)
-                                .or_default()
-                                .insert((*pipeline).clone(), index)
-                                .is_none()
-                        );
-                    }
-                }
-        
-                if let Ok(Ok(Ok(mut system_pipeline_registry))) = get_system_pipeline_registry(program_registry, Some(program_id.clone())) {
-                    *system_pipeline_registry.as_mut() = new_system_pipeline_registry;
                 }
             }
         }
 
+        {   
+            let world = program_registry.resolve::<Unique<World>>(None, vec![]);
+            if let Ok(Ok(mut world)) = world {
+                for exhausted_pipeline in exhausted_executable_pipelines {
+                    // separate bc if it dont have PipelineId it wouldnt remove ExecutablePipeline
+                    let _ = world.remove::<(ExecutablePipeline,)>(exhausted_pipeline);
+                    let _ = world.remove::<(PipelineId,)>(exhausted_pipeline);
+                }
+            }
+        }
+
+        #[allow(unused)]
+        let mut pipeline_event_map: HashMap<&Option<PipelineId>, Event> = HashMap::new();
+        #[cfg(feature = "pipeline-events")]
+        {
+            let executable_events = program_registry.resolve::<Query<&ExecutableEvent>>(None, vec![]);
+            if let Ok(Ok(executable_events)) = executable_events {
+                for executable_event in executable_events.query().iter() {
+                    for (pipeline_id, executable) in next_executables.iter() {
+                        if executable == executable_event.id() {
+                            event_buffer.insert(executable_event.event().clone());
+                            pipeline_event_map.insert(pipeline_id, executable_event.event().clone());
+                        }
+                    }
+                }
+            }
+        }
+
+
+        #[allow(unused)]
+        let mut event_reactors: HashMap<Event, HashSet<SystemId>> = HashMap::new();
+        #[cfg(feature = "event-reactors")]
+        {
+            for program_id in program_registry.program_ids() {
+                let program_access_builder = AccessBuilder {
+                    program_id: Some(program_id.clone()),
+                    ..Default::default()
+                };
+                                
+                let world = program_registry.resolve::<Shared<World>>(None, vec![program_access_builder]);
+                if let Ok(Ok(world)) = world {
+                    let prepared_event_reactors = world.prepare_query::<(Entity, &EventReactor)>();
+                    if let Some(prepared_event_reactors) = prepared_event_reactors {
+                        for (entity, event_reactor) in prepared_event_reactors.query(&world).iter() {
+                            for event in event_reactor.events() {
+                                event_reactors.entry(event.clone()).or_default().insert((program_id.clone(), entity));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        #[cfg(feature = "load-pipeline-resources")]
+        {
+            for system_ids in event_reactors.values() {
+                for (program_id, system_entity) in system_ids {
+                    let program_access_builder = AccessBuilder {
+                        program_id: Some(program_id.clone()),
+                        ..Default::default()
+                    };
+
+                    let insert_default = {
+                        let world = program_registry.resolve::<Shared<World>>(None, vec![program_access_builder]);
+                        if let Ok(Ok(world)) = world {
+                            if world.has::<PipelineResources>(*system_entity).is_some_and(|has| has) {
+                                let prepared_system_pipeline_resources = world.prepare_get_unique::<PipelineResources>(*system_entity);
+                                if let Some(prepared_system_pipeline_resources) = prepared_system_pipeline_resources {
+                                    let mut system_pipeline_resources = prepared_system_pipeline_resources.get(&world);
+                                    system_pipeline_resources.clear();
+                                }
+
+                                false
+                            } else { true }
+                        } else { true }
+                    };
+                    
+                    if insert_default {
+                        let program_access_builder = AccessBuilder {
+                            program_id: Some(program_id.clone()),
+                            ..Default::default()
+                        };
+                        
+                        let world = program_registry.resolve::<Unique<World>>(None, vec![program_access_builder]);
+                        if let Ok(Ok(mut world)) = world {
+                            let _ = world.insert(*system_entity, (PipelineResources::default(),));
+                        }
+                    }                                
+                }
+            }
+        }
+
+        #[cfg(feature = "load-pipeline-resources")]
+        {
+            let pipeline_resources = program_registry.resolve::<Query<&PipelineResource>>(None, vec![]);
+            if let Ok(Ok(pipeline_resources)) = pipeline_resources {
+                for pipeline_resource in pipeline_resources.query().iter() {
+                    if let Some(event) = pipeline_event_map.get(&Some(pipeline_resource.pipeline_id().clone())) {
+                        if let Some(systems) = event_reactors.get(event) {
+                            for (program_id, system_entity) in systems {
+                                let program_access_builder = AccessBuilder {
+                                    program_id: Some(program_id.clone()),
+                                    ..Default::default()
+                                };
+                                
+                                let world = program_registry.resolve::<Shared<World>>(None, vec![program_access_builder]);
+                                if let Ok(Ok(world)) = world {
+                                    let prepared_system_pipeline_resources = world.prepare_get_unique::<PipelineResources>(*system_entity);
+                                    if let Some(prepared_system_pipeline_resources) = prepared_system_pipeline_resources {
+                                        let mut system_pipeline_resources = prepared_system_pipeline_resources.get(&world);
+                                        system_pipeline_resources.insert(*pipeline_resource.entity());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         event_buffer
     }

@@ -4,13 +4,22 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+small_derive_deref = "0.1.4"
+
 aion-event = { path = "../../aion-event" }
 aion-program = { path = "../../aion-program" }
 aion-processor = { path = "../../aion-processor" }
+aion-ecs = { path = "../../aion-ecs" }
 
-aion-event-processor = { path = "../aion-event-processor", optional = true }
+hecs = "0.11.0"
 
 [features]
-default = ["load-access-builders"]
-pipeline-resources = []
-load-access-builders = ["aion-event-processor", "pipeline-resources"]
+# default = ["pipeline-events"]
+# default = ["event-reactors"]
+# default = ["load-pipeline-resources"]
+# default = ["pipeline-events", "event-reactors"]
+# default = ["load-pipeline-resources", "event-reactors"]
+default = ["pipeline-events", "event-reactors", "load-pipeline-resources"]
+pipeline-events = []
+event-reactors = []
+load-pipeline-resources = []
