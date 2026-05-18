@@ -45,8 +45,16 @@ impl EventSystem for EventExecutable {
             }
         }
 
-        // for exhausted_pipeline 
-        // world.remove
+        {   
+            let world = program_registry.resolve::<Unique<World>>(None, vec![]);
+            if let Ok(Ok(mut world)) = world {
+                for exhausted_pipeline in exhausted_executable_pipelines {
+                    // separate bc if it dont have PipelineId it wouldnt remove ExecutablePipeline
+                    let _ = world.remove::<(ExecutablePipeline,)>(exhausted_pipeline);
+                    let _ = world.remove::<(PipelineId,)>(exhausted_pipeline);
+                }
+            }
+        }
 
         let mut pipeline_event_map = HashMap::new();
         {
