@@ -3,19 +3,35 @@ use std::{collections::{HashMap, HashSet}, sync::Arc};
 use aion_ecs::prelude::{Query, World};
 use aion_event::prelude::{Event, EventBuffer, EventHistory, EventSystem};
 use aion_processor::prelude::SystemId;
-use aion_program::prelude::{AccessBuilder, ProgramRegistry, Shared, Unique};
+use aion_program::prelude::{ProgramRegistry, Unique};
 use hecs::Entity;
 
-use crate::{event_executable::event_reactor::EventReactor, prelude::{ExecutableEvent, ExecutablePipeline, PipelineId, PipelineResource, PipelineResources}};
+use crate::prelude::{ExecutablePipeline, PipelineId};
 
 pub mod executable_pipeline;
 pub mod pipeline_id;
 
+#[cfg(feature = "pipeline-events")]
+use crate::prelude::ExecutableEvent;
+#[cfg(feature = "pipeline-events")]
 pub mod executable_event;
-pub mod pipeline_resources;
-pub mod pipeline_resource;
-pub mod get_pipeline_resources;
+
+#[cfg(any(feature = "load-pipeline-resources", feature = "event-reactors"))]
+use aion_program::prelude::{AccessBuilder, Shared};
+
+#[cfg(feature = "event-reactors")]
+use crate::prelude::EventReactor;
+#[cfg(feature = "event-reactors")]
 pub mod event_reactor;
+
+#[cfg(feature = "load-pipeline-resources")]
+use crate::prelude::{PipelineResources, PipelineResource};
+#[cfg(feature = "load-pipeline-resources")]
+pub mod pipeline_resources;
+#[cfg(feature = "load-pipeline-resources")]
+pub mod pipeline_resource;
+#[cfg(feature = "load-pipeline-resources")]
+pub mod get_pipeline_resources;
 
 pub struct EventExecutable;
 
@@ -26,6 +42,7 @@ impl EventSystem for EventExecutable {
         _current_events: &EventBuffer,
         _event_history: &EventHistory,
     ) -> EventBuffer {
+        #[allow(unused)]
         let mut event_buffer = EventBuffer::default();
 
         let mut next_executables = HashMap::new();
@@ -56,7 +73,9 @@ impl EventSystem for EventExecutable {
             }
         }
 
-        let mut pipeline_event_map = HashMap::new();
+        #[allow(unused)]
+        let mut pipeline_event_map: HashMap<&Option<PipelineId>, Event> = HashMap::new();
+        #[cfg(feature = "pipeline-events")]
         {
             let executable_events = program_registry.resolve::<Query<&ExecutableEvent>>(None, vec![]);
             if let Ok(Ok(executable_events)) = executable_events {
@@ -72,7 +91,9 @@ impl EventSystem for EventExecutable {
         }
 
 
+        #[allow(unused)]
         let mut event_reactors: HashMap<Event, HashSet<SystemId>> = HashMap::new();
+        #[cfg(feature = "event-reactors")]
         {
             for program_id in program_registry.program_ids() {
                 let program_access_builder = AccessBuilder {
@@ -94,6 +115,7 @@ impl EventSystem for EventExecutable {
             }
         }
 
+        #[cfg(feature = "load-pipeline-resources")]
         {
             for system_ids in event_reactors.values() {
                 for (program_id, system_entity) in system_ids {
@@ -132,6 +154,7 @@ impl EventSystem for EventExecutable {
             }
         }
 
+        #[cfg(feature = "load-pipeline-resources")]
         {
             let pipeline_resources = program_registry.resolve::<Query<&PipelineResource>>(None, vec![]);
             if let Ok(Ok(pipeline_resources)) = pipeline_resources {
