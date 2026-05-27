@@ -3,18 +3,21 @@ pub mod event_executable;
 pub mod prelude {
     pub use super::{
         event_executable::{
-            executable_pipeline::{
-                ExecutablePipeline
-            },
             pipeline_id::{
                 PipelineId
             },
+        }
+    };
+    
+    #[cfg(feature = "processing")]
+    pub use super::{
+        event_executable::{
+            executable_pipeline::{
+                ExecutablePipeline
+            },
             get_executable_pipelines::{
                 GetExecutablePipelines
-            },
-            inject_pipeline_resources::{
-                InjectPipelineResources
-            }
+            }, 
         }
     };
     
@@ -56,6 +59,9 @@ pub mod prelude {
             },
             get_pipeline_resources::{
                 GetPipelineResources
+            },
+            inject_pipeline_resources::{
+                InjectPipelineResources
             }
         }
     };

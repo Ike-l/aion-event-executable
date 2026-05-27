@@ -1,15 +1,27 @@
 use std::{collections::{HashMap, HashSet}, sync::Arc};
 
-use aion_ecs::prelude::World;
 use aion_event::prelude::{Event, EventBuffer, EventHistory, EventSystem};
 use aion_processor::prelude::SystemId;
-use aion_program::prelude::{ProgramRegistry, Unique};
+use aion_program::prelude::ProgramRegistry;
+
+use crate::prelude::PipelineId;
+
+#[cfg(any(feature = "processing", feature = "pipeline-events", feature = "load-pipeline-resources", feature = "event-reactors"))]
 use tokio::runtime::Runtime;
+#[cfg(any(feature = "processing", feature = "pipeline-events", feature = "load-pipeline-resources", feature = "event-reactors"))]
+use aion_program::prelude::Shared;
 
-use crate::prelude::{ExecutablePipeline, GetExecutablePipelines, PipelineId};
+#[cfg(any(feature = "processing", feature = "load-pipeline-resources"))]
+use aion_ecs::prelude::World;
+#[cfg(any(feature = "processing", feature = "load-pipeline-resources"))]
+use aion_program::prelude::Unique;
 
+#[cfg(feature = "processing")]
 pub mod executable_pipeline;
+#[cfg(feature = "processing")]
 pub mod get_executable_pipelines;
+#[cfg(feature = "processing")]
+use crate::prelude::{GetExecutablePipelines, ExecutablePipeline};
 
 pub mod pipeline_id;
 
@@ -19,7 +31,7 @@ pub mod executable_event;
 pub mod get_executable_events;
 
 #[cfg(any(feature = "load-pipeline-resources", feature = "event-reactors"))]
-use aion_program::prelude::{AccessBuilder, Shared};
+use aion_program::prelude::{AccessBuilder};
 
 #[cfg(feature = "event-reactors")]
 pub mod event_reactor;
@@ -44,6 +56,7 @@ pub struct EventExecutable;
 impl EventSystem for EventExecutable {
     fn execute(
         &self,
+        #[allow(unused_variables)]
         program_registry: &Arc<ProgramRegistry>, 
         _current_events: &EventBuffer,
         _event_history: &EventHistory,
@@ -51,14 +64,21 @@ impl EventSystem for EventExecutable {
         #[allow(unused)]
         let mut event_buffer = EventBuffer::default();
 
+        #[cfg(any(feature = "processing", feature = "pipeline-events", feature = "load-pipeline-resources", feature = "event-reactors"))]
         let runtime = program_registry.resolve::<Shared<Runtime>>(None, vec![]);
+        #[cfg(any(feature = "processing", feature = "pipeline-events", feature = "load-pipeline-resources", feature = "event-reactors"))]
         let runtime = match runtime {
             Ok(runtime) => Some(runtime),
             _ => None
         };
 
-        let mut next_executables = HashMap::new();
-        let mut exhausted_executable_pipelines = HashSet::new();
+        #[allow(unused_mut)]
+        #[allow(unused_variables)]
+        let mut next_executables: HashMap<Option<PipelineId>, String> = HashMap::new();
+        #[allow(unused_mut)]
+        #[allow(unused_variables)]
+        let mut exhausted_executable_pipelines: HashSet<hecs::Entity> = HashSet::new();
+        #[cfg(feature = "processing")]
         {            
             let executable_pipelines = program_registry.get_executable_pipelines(runtime.as_deref());
             if let Ok(executable_pipelines) = executable_pipelines {
@@ -74,6 +94,7 @@ impl EventSystem for EventExecutable {
             }
         }
 
+        #[cfg(feature = "processing")]
         {   
             let world = program_registry.resolve_simple_either::<Unique<World>>(runtime.as_deref());
             if let Ok(mut world) = world {
