@@ -72,8 +72,8 @@ impl EventSystem for EventExecutable {
         }
 
         {   
-            let world = program_registry.resolve::<Unique<World>>(None, vec![]);
-            if let Ok(Ok(mut world)) = world {
+            let world = program_registry.resolve_simple_either::<Unique<World>>(runtime.as_deref());
+            if let Ok(mut world) = world {
                 for exhausted_pipeline in exhausted_executable_pipelines {
                     // separate bc if it dont have PipelineId it wouldnt remove ExecutablePipeline
                     let _ = world.remove::<(ExecutablePipeline,)>(exhausted_pipeline);
