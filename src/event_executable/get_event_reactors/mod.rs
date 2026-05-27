@@ -22,6 +22,6 @@ impl GetEventReactors for Arc<ProgramRegistry> {
         access_builders: Vec<AccessBuilder>
     ) -> Result<Query<'_, (Entity, &EventReactor)>, ProgramRegistryResolveEitherError>
     {
-        self.resolve_either::<Query<(Entity, &EventReactor)>>(runtime, access_builders)
+        self.resolve_either::<Query<(Entity, &EventReactor)>>(runtime, None, access_builders)
     }
 }

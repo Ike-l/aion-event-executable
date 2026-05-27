@@ -27,13 +27,15 @@ pub mod event_reactor;
 pub mod get_event_reactors;
 
 #[cfg(feature = "load-pipeline-resources")]
-use crate::prelude::{PipelineResources, PipelineResource};
+use crate::prelude::{PipelineResources, PipelineResource, GetUniquePipelineResources};
 #[cfg(feature = "load-pipeline-resources")]
 pub mod pipeline_resources;
 #[cfg(feature = "load-pipeline-resources")]
 pub mod pipeline_resource;
 #[cfg(feature = "load-pipeline-resources")]
 pub mod get_pipeline_resources;
+#[cfg(feature = "load-pipeline-resources")]
+pub mod get_unique_pipeline_resources;
 
 pub struct EventExecutable;
 
@@ -134,13 +136,14 @@ impl EventSystem for EventExecutable {
                     };
 
                     let insert_default = {
-                        let world = program_registry.resolve::<Shared<World>>(None, vec![program_access_builder]);
-                        if let Ok(Ok(world)) = world {
+                        let world = program_registry.resolve_either::<Unique<World>>(runtime.as_deref(), None, vec![program_access_builder]);
+                        if let Ok(mut world) = world {
                             if world.has::<PipelineResources>(*system_entity).is_some_and(|has| has) {
-                                let prepared_system_pipeline_resources = world.prepare_get_unique::<PipelineResources>(*system_entity);
-                                if let Some(prepared_system_pipeline_resources) = prepared_system_pipeline_resources {
-                                    let mut system_pipeline_resources = prepared_system_pipeline_resources.get(&world);
-                                    system_pipeline_resources.clear();
+                                drop(world);
+                                
+                                let pipeline_resource = program_registry.get_unique_pipeline_resources(runtime.as_deref(), *system_entity, vec![program_access_builder]);
+                                if let Ok(pipeline_resource) = pipeline_resource {
+                                    pipeline_resource.get_unique().clear();
                                 }
 
                                 false
@@ -154,8 +157,8 @@ impl EventSystem for EventExecutable {
                             ..Default::default()
                         };
                         
-                        let world = program_registry.resolve::<Unique<World>>(None, vec![program_access_builder]);
-                        if let Ok(Ok(mut world)) = world {
+                        let world = program_registry.resolve_either::<Unique<World>>(runtime.as_deref(), None, vec![program_access_builder]);
+                        if let Ok(mut world) = world {
                             let _ = world.insert(*system_entity, (PipelineResources::default(),));
                         }
                     }                                

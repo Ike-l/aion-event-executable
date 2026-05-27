@@ -51,6 +51,9 @@ pub mod prelude {
             pipeline_resources::{
                 PipelineResources
             },
+            get_unique_pipeline_resources::{
+                GetUniquePipelineResources
+            }
         }
     };
 }
