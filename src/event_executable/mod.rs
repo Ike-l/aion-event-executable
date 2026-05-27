@@ -18,6 +18,8 @@ pub mod pipeline_id;
 use crate::prelude::ExecutableEvent;
 #[cfg(feature = "pipeline-events")]
 pub mod executable_event;
+#[cfg(feature = "pipeline-events")]
+pub mod get_executable_events;
 
 #[cfg(any(feature = "load-pipeline-resources", feature = "event-reactors"))]
 use aion_program::prelude::{AccessBuilder, Shared};
@@ -86,8 +88,10 @@ impl EventSystem for EventExecutable {
         let mut pipeline_event_map: HashMap<&Option<PipelineId>, Event> = HashMap::new();
         #[cfg(feature = "pipeline-events")]
         {
-            let executable_events = program_registry.resolve::<Query<&ExecutableEvent>>(None, vec![]);
-            if let Ok(Ok(executable_events)) = executable_events {
+            use crate::prelude::GetExecutableEvents;
+
+            let executable_events = program_registry.get_executable_events(runtime.as_deref());
+            if let Ok(executable_events) = executable_events {
                 for executable_event in executable_events.query().iter() {
                     for (pipeline_id, executable) in next_executables.iter() {
                         if executable == executable_event.id() {
