@@ -12,6 +12,7 @@ aion-processor = { path = "../../aion-processor" }
 aion-ecs = { path = "../../aion-ecs" }
 
 hecs = "0.11.0"
+tokio = "1.52.3"
 
 [features]
 # default = ["pipeline-events"]

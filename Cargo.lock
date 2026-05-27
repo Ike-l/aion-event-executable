@@ -29,6 +29,7 @@ dependencies = [
  "aion-program",
  "hecs",
  "small_derive_deref",
+ "tokio",
 ]
 
 [[package]]

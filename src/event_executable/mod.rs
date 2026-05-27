@@ -5,10 +5,13 @@ use aion_event::prelude::{Event, EventBuffer, EventHistory, EventSystem};
 use aion_processor::prelude::SystemId;
 use aion_program::prelude::{ProgramRegistry, Unique};
 use hecs::Entity;
+use tokio::runtime::Runtime;
 
-use crate::prelude::{ExecutablePipeline, PipelineId};
+use crate::prelude::{ExecutablePipeline, GetExecutablePipelines, PipelineId};
 
 pub mod executable_pipeline;
+pub mod get_executable_pipelines;
+
 pub mod pipeline_id;
 
 #[cfg(feature = "pipeline-events")]
@@ -45,11 +48,17 @@ impl EventSystem for EventExecutable {
         #[allow(unused)]
         let mut event_buffer = EventBuffer::default();
 
+        let runtime = program_registry.resolve::<Shared<Runtime>>(None, vec![]);
+        let runtime = match runtime {
+            Ok(runtime) => Some(runtime),
+            _ => None
+        };
+
         let mut next_executables = HashMap::new();
         let mut exhausted_executable_pipelines = HashSet::new();
-        {
-            let executable_pipelines = program_registry.resolve::<Query<(Entity, &mut ExecutablePipeline, Option<&PipelineId>)>>(None, vec![]);
-            if let Ok(Ok(executable_pipelines)) = executable_pipelines {
+        {            
+            let executable_pipelines = program_registry.get_executable_pipelines(runtime.as_deref());
+            if let Ok(executable_pipelines) = executable_pipelines {
                 for (entity, executable_pipeline, pipeline_id) in executable_pipelines.query().iter() {
                     if let Some(next_executable) = executable_pipeline.pop_front().cloned() {
                         if let Some(next_executable) = next_executable {
