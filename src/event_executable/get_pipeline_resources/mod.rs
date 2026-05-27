@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use aion_ecs::prelude::{GetShared, World};
-use aion_program::prelude::{AccessBuilder, AccessSubmissionError, DerivedResult, FinalisedAccess, Injection, ProgramRegistry, ResolveResourceError, Shared};
+use aion_ecs::prelude::GetShared;
+use aion_program::prelude::{AccessBuilder, AccessSubmissionError, DerivedResult, FinalisedAccess, Injection, ProgramRegistry, ResolveResourceError};
 use hecs::Entity;
 
 use crate::prelude::PipelineResources;
@@ -10,7 +10,6 @@ use crate::prelude::PipelineResources;
 pub struct GetPipelineResources {
     pipeline_resources: PipelineResources
 }
-
 
 impl Injection for GetPipelineResources {
     type Item<'new> = GetPipelineResources;

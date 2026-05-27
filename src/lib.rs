@@ -9,6 +9,12 @@ pub mod prelude {
             pipeline_id::{
                 PipelineId
             },
+            get_executable_pipelines::{
+                GetExecutablePipelines
+            },
+            get_pipeline_resources::{
+                GetPipelineResources
+            }
         }
     };
     
