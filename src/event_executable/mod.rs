@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet}, sync::Arc};
 
-use aion_ecs::prelude::{Query, World};
+use aion_ecs::prelude::World;
 use aion_event::prelude::{Event, EventBuffer, EventHistory, EventSystem};
 use aion_processor::prelude::SystemId;
 use aion_program::prelude::{ProgramRegistry, Unique};
@@ -27,15 +27,17 @@ pub mod event_reactor;
 pub mod get_event_reactors;
 
 #[cfg(feature = "load-pipeline-resources")]
-use crate::prelude::{PipelineResources, PipelineResource, GetUniquePipelineResources};
+use crate::prelude::{PipelineResources, GetUniquePipelineResources};
 #[cfg(feature = "load-pipeline-resources")]
 pub mod pipeline_resources;
 #[cfg(feature = "load-pipeline-resources")]
 pub mod pipeline_resource;
 #[cfg(feature = "load-pipeline-resources")]
-pub mod get_pipeline_resources;
+pub mod inject_pipeline_resources;
 #[cfg(feature = "load-pipeline-resources")]
 pub mod get_unique_pipeline_resources;
+#[cfg(feature = "load-pipeline-resources")]
+pub mod get_pipeline_resources;
 
 pub struct EventExecutable;
 
@@ -136,8 +138,8 @@ impl EventSystem for EventExecutable {
                     };
 
                     let insert_default = {
-                        let world = program_registry.resolve_either::<Unique<World>>(runtime.as_deref(), None, vec![program_access_builder]);
-                        if let Ok(mut world) = world {
+                        let world = program_registry.resolve_either::<Shared<World>>(runtime.as_deref(), None, vec![program_access_builder.clone()]);
+                        if let Ok(world) = world {
                             if world.has::<PipelineResources>(*system_entity).is_some_and(|has| has) {
                                 drop(world);
                                 
@@ -168,24 +170,22 @@ impl EventSystem for EventExecutable {
 
         #[cfg(feature = "load-pipeline-resources")]
         {
-            let pipeline_resources = program_registry.resolve::<Query<&PipelineResource>>(None, vec![]);
-            if let Ok(Ok(pipeline_resources)) = pipeline_resources {
+            use crate::prelude::GetPipelineResources;
+
+            let pipeline_resources = program_registry.get_pipeline_resources(runtime.as_deref());
+            if let Ok(pipeline_resources) = pipeline_resources {
                 for pipeline_resource in pipeline_resources.query().iter() {
                     if let Some(event) = pipeline_event_map.get(&Some(pipeline_resource.pipeline_id().clone())) {
-                        if let Some(systems) = event_reactors.get(event) {
+                        if let Some(systems) = current_event_reactors.get(event) {
                             for (program_id, system_entity) in systems {
                                 let program_access_builder = AccessBuilder {
                                     program_id: Some(program_id.clone()),
                                     ..Default::default()
                                 };
                                 
-                                let world = program_registry.resolve::<Shared<World>>(None, vec![program_access_builder]);
-                                if let Ok(Ok(world)) = world {
-                                    let prepared_system_pipeline_resources = world.prepare_get_unique::<PipelineResources>(*system_entity);
-                                    if let Some(prepared_system_pipeline_resources) = prepared_system_pipeline_resources {
-                                        let mut system_pipeline_resources = prepared_system_pipeline_resources.get(&world);
-                                        system_pipeline_resources.insert(*pipeline_resource.entity());
-                                    }
+                                let pipeline_resources = program_registry.get_unique_pipeline_resources(runtime.as_deref(), *system_entity, vec![program_access_builder]);
+                                if let Ok(pipeline_resources) = pipeline_resources {
+                                    pipeline_resources.get_unique().insert(*pipeline_resource.entity());
                                 }
                             }
                         }

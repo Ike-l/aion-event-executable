@@ -13,7 +13,7 @@ pub trait GetUniquePipelineResources {
         runtime: Option<&Runtime>,
         entity: Entity,
         access_builders: Vec<AccessBuilder>
-    ) -> Result<GetUnique<PipelineResources>, ProgramRegistryResolveEitherError>;
+    ) -> Result<GetUnique<'_, PipelineResources>, ProgramRegistryResolveEitherError>;
 }
 
 impl GetUniquePipelineResources for Arc<ProgramRegistry> {
@@ -22,7 +22,7 @@ impl GetUniquePipelineResources for Arc<ProgramRegistry> {
         runtime: Option<&Runtime>,
         entity: Entity,
         access_builders: Vec<AccessBuilder>
-    ) -> Result<GetUnique<PipelineResources>, ProgramRegistryResolveEitherError> {
+    ) -> Result<GetUnique<'_, PipelineResources>, ProgramRegistryResolveEitherError> {
         self.resolve_either::<GetUnique<PipelineResources>>(runtime, Some(entity), access_builders)
     }
 }
