@@ -6,9 +6,10 @@ use aion_program::prelude::ProgramRegistry;
 
 use crate::prelude::PipelineId;
 
-#[cfg(any(feature = "processing", feature = "pipeline-events", feature = "load-pipeline-resources", feature = "event-reactors"))]
+#[cfg(feature = "any")]
 use tokio::runtime::Runtime;
-#[cfg(any(feature = "processing", feature = "pipeline-events", feature = "load-pipeline-resources", feature = "event-reactors"))]
+
+#[cfg(feature = "any")]
 use aion_program::prelude::Shared;
 
 #[cfg(any(feature = "processing", feature = "load-pipeline-resources"))]
@@ -64,9 +65,9 @@ impl EventSystem for EventExecutable {
         #[allow(unused)]
         let mut event_buffer = EventBuffer::default();
 
-        #[cfg(any(feature = "processing", feature = "pipeline-events", feature = "load-pipeline-resources", feature = "event-reactors"))]
+        #[cfg(feature = "any")]
         let runtime = program_registry.resolve::<Shared<Runtime>>(None, vec![]);
-        #[cfg(any(feature = "processing", feature = "pipeline-events", feature = "load-pipeline-resources", feature = "event-reactors"))]
+        #[cfg(feature = "any")]
         let runtime = match runtime {
             Ok(runtime) => Some(runtime),
             _ => None

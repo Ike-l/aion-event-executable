@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-small_derive_deref = "0.1.4"
-
 aion-event = { path = "../../aion-event" }
 aion-program = { path = "../../aion-program" }
 aion-processor = { path = "../../aion-processor" }
-aion-ecs = { path = "../../aion-ecs" }
+aion-ecs = { path = "../../aion-ecs", optional = true }
 
-hecs = "0.11.0"
-tokio = { version = "1.52.3", optional = true}
+hecs = { version = "0.11.0" }
+
+small_derive_deref = { version = "0.1.4", optional = true }
+tokio = { version = "1.52.3", optional = true }
 
 [features]
 # default = []
@@ -36,7 +36,9 @@ tokio = { version = "1.52.3", optional = true}
 
 default = ["processing", "pipeline-events", "event-reactors", "load-pipeline-resources"]
 
-processing = ["tokio"]
-pipeline-events = ["tokio"]
-event-reactors = ["tokio"]
-load-pipeline-resources = ["tokio"]
+any = ["tokio", "aion-ecs"]
+
+processing = ["any"]
+pipeline-events = ["any"]
+event-reactors = ["any"]
+load-pipeline-resources = ["any", "small_derive_deref"]
