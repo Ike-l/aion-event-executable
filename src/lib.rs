@@ -35,6 +35,9 @@ pub mod prelude {
         event_executable::{
             event_reactor::{
                 EventReactor
+            },
+            get_event_reactors::{
+                GetEventReactors
             }
         }
     };

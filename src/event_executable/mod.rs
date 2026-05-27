@@ -4,7 +4,6 @@ use aion_ecs::prelude::{Query, World};
 use aion_event::prelude::{Event, EventBuffer, EventHistory, EventSystem};
 use aion_processor::prelude::SystemId;
 use aion_program::prelude::{ProgramRegistry, Unique};
-use hecs::Entity;
 use tokio::runtime::Runtime;
 
 use crate::prelude::{ExecutablePipeline, GetExecutablePipelines, PipelineId};
@@ -15,8 +14,6 @@ pub mod get_executable_pipelines;
 pub mod pipeline_id;
 
 #[cfg(feature = "pipeline-events")]
-use crate::prelude::ExecutableEvent;
-#[cfg(feature = "pipeline-events")]
 pub mod executable_event;
 #[cfg(feature = "pipeline-events")]
 pub mod get_executable_events;
@@ -25,9 +22,9 @@ pub mod get_executable_events;
 use aion_program::prelude::{AccessBuilder, Shared};
 
 #[cfg(feature = "event-reactors")]
-use crate::prelude::EventReactor;
-#[cfg(feature = "event-reactors")]
 pub mod event_reactor;
+#[cfg(feature = "event-reactors")]
+pub mod get_event_reactors;
 
 #[cfg(feature = "load-pipeline-resources")]
 use crate::prelude::{PipelineResources, PipelineResource};
@@ -105,23 +102,22 @@ impl EventSystem for EventExecutable {
 
 
         #[allow(unused)]
-        let mut event_reactors: HashMap<Event, HashSet<SystemId>> = HashMap::new();
+        let mut current_event_reactors: HashMap<Event, HashSet<SystemId>> = HashMap::new();
         #[cfg(feature = "event-reactors")]
         {
             for program_id in program_registry.program_ids() {
+                use crate::prelude::GetEventReactors;
+
                 let program_access_builder = AccessBuilder {
                     program_id: Some(program_id.clone()),
                     ..Default::default()
                 };
                                 
-                let world = program_registry.resolve::<Shared<World>>(None, vec![program_access_builder]);
-                if let Ok(Ok(world)) = world {
-                    let prepared_event_reactors = world.prepare_query::<(Entity, &EventReactor)>();
-                    if let Some(prepared_event_reactors) = prepared_event_reactors {
-                        for (entity, event_reactor) in prepared_event_reactors.query(&world).iter() {
-                            for event in event_reactor.events() {
-                                event_reactors.entry(event.clone()).or_default().insert((program_id.clone(), entity));
-                            }
+                let event_reactors = program_registry.get_event_reactors(runtime.as_deref(), vec![program_access_builder]);
+                if let Ok(event_reactors) = event_reactors {
+                    for (entity, event_reactor) in event_reactors.query().iter() {
+                        for event in event_reactor.events() {
+                            current_event_reactors.entry(event.clone()).or_default().insert((program_id.clone(), entity));
                         }
                     }
                 }
@@ -130,7 +126,7 @@ impl EventSystem for EventExecutable {
 
         #[cfg(feature = "load-pipeline-resources")]
         {
-            for system_ids in event_reactors.values() {
+            for system_ids in current_event_reactors.values() {
                 for (program_id, system_entity) in system_ids {
                     let program_access_builder = AccessBuilder {
                         program_id: Some(program_id.clone()),
