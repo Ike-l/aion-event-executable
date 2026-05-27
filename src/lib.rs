@@ -12,8 +12,8 @@ pub mod prelude {
             get_executable_pipelines::{
                 GetExecutablePipelines
             },
-            get_pipeline_resources::{
-                GetPipelineResources
+            inject_pipeline_resources::{
+                InjectPipelineResources
             }
         }
     };
@@ -53,6 +53,9 @@ pub mod prelude {
             },
             get_unique_pipeline_resources::{
                 GetUniquePipelineResources
+            },
+            get_pipeline_resources::{
+                GetPipelineResources
             }
         }
     };
