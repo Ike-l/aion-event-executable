@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use aion_ecs::prelude::GetShared;
-use aion_program::prelude::{AccessBuilder, AccessSubmissionError, DerivedResult, FinalisedAccess, Injection, ProgramRegistry, ResolveResourceError};
+use aion_program::prelude::{AccessBuilder, AccessSubmissionError, DerivedError, FinalisedAccess, Injection, ProgramRegistry, ResolveResourceError, ResolvedResource};
 use hecs::Entity;
 
 use crate::prelude::PipelineResources;
@@ -20,7 +20,7 @@ impl Injection for InjectPipelineResources {
         GetShared::<PipelineResources>::submit_access(prompted_accesses)
     }
 
-    fn resolve_access<'new>(entity: Option<Entity>, program_registry: Arc<ProgramRegistry>, derived_results: Vec<DerivedResult<'new>>) -> Result<Self::Item<'new>, ResolveResourceError> {
+    fn resolve_access<'new>(entity: Option<Entity>, program_registry: Arc<ProgramRegistry>, derived_results: Vec<Result<ResolvedResource<'new>, DerivedError>>) -> Result<Self::Item<'new>, ResolveResourceError> {
         let pipeline_resources = GetShared::<PipelineResources>::resolve_access(entity, program_registry, derived_results)?;
 
         Ok(InjectPipelineResources {
